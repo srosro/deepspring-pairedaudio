@@ -15,7 +15,6 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Recording parameters
 FORMAT = pyaudio.paInt16
-CHANNELS = 2
 RATE = 44100
 CHUNK = 1024
 RECORD_SECONDS = 3600  # 1 hour
@@ -29,8 +28,13 @@ def record_audio():
 
     audio = pyaudio.PyAudio()
 
+    # Check the default input device for the number of channels
+    device_info = audio.get_default_input_device_info()
+    max_input_channels = device_info['maxInputChannels']
+    channels = min(2, max_input_channels)  # Use up to 2 channels if available
+
     # Open the audio stream
-    stream = audio.open(format=FORMAT, channels=CHANNELS,
+    stream = audio.open(format=FORMAT, channels=channels,
                         rate=RATE, input=True,
                         frames_per_buffer=CHUNK)
 
@@ -38,7 +42,7 @@ def record_audio():
 
     # Open the raw WAV file for writing
     with wave.open(raw_output_file, 'wb') as wf:
-        wf.setnchannels(CHANNELS)
+        wf.setnchannels(channels)
         wf.setsampwidth(audio.get_sample_size(FORMAT))
         wf.setframerate(RATE)
 
@@ -58,6 +62,10 @@ def record_audio():
     with wave.open(raw_output_file, 'rb') as wf:
         raw_audio_data = wf.readframes(wf.getnframes())
         audio_data = np.frombuffer(raw_audio_data, dtype=np.int16)
+        
+        if channels == 2:
+            # Merge stereo to mono by averaging both channels
+            audio_data = np.mean(audio_data.reshape(-1, 2), axis=1)
         
         # Convert to float32 for processing
         audio_float = audio_data.astype(np.float32) / 32768.0
@@ -79,25 +87,29 @@ def record_audio():
         )
 
         # Normalize the audio
-        normalized_audio = np.int16(compressed_audio / np.max(np.abs(compressed_audio)) * 32767)
+        max_val = np.max(np.abs(compressed_audio))
+        normalized_audio = compressed_audio / max_val
+
+        # Duplicate the mono signal to create stereo
+        stereo_audio = np.column_stack((normalized_audio, normalized_audio))
+
+        # Convert back to int16
+        final_audio = np.int16(stereo_audio * 32767)
 
     # Save the processed recording as a new WAV file
     with wave.open(final_output_file, 'wb') as wf:
-        wf.setnchannels(CHANNELS)
+        wf.setnchannels(2)  # Stereo channel
         wf.setsampwidth(audio.get_sample_size(FORMAT))
         wf.setframerate(RATE)
-        wf.writeframes(normalized_audio.tobytes())
+        wf.writeframes(final_audio.flatten().tobytes())
 
     # Optionally, remove the raw recording file to save space
     os.remove(raw_output_file)
 
-def schedule_recording():
-    # Schedule the recording to start at the beginning of every hour
-    schedule.every().hour.at(":00").do(record_audio)
-
+def continuous_recording():
     while True:
-        schedule.run_pending()
-        time.sleep(1)
+        record_audio()
+        time.sleep(RECORD_SECONDS)
 
 if __name__ == "__main__":
-    schedule_recording()
+    continuous_recording()
