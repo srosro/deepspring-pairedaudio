@@ -19,6 +19,24 @@ RATE = 44100
 CHUNK = 1024
 RECORD_SECONDS = 3600  # 1 hour
 
+def spectral_gate(audio, sample_rate, noise_reduction_amount=1.5):
+    """
+    Apply a basic spectral gating noise reduction.
+    """
+    # Short-Time Fourier Transform (STFT)
+    f, t, Zxx = signal.stft(audio, fs=sample_rate, nperseg=1024)
+
+    # Estimate the noise profile from the quietest portions
+    noise_profile = np.percentile(np.abs(Zxx), 25, axis=1)
+    
+    # Apply spectral gating
+    Zxx_denoised = np.where(np.abs(Zxx) < noise_reduction_amount * noise_profile[:, None], 0, Zxx)
+    
+    # Inverse STFT to convert back to time domain
+    _, audio_denoised = signal.istft(Zxx_denoised, fs=sample_rate)
+
+    return audio_denoised
+
 def record_audio():
     # Get the current time in PST
     pst = timezone('America/Los_Angeles')
@@ -73,9 +91,12 @@ def record_audio():
         # Apply noise reduction
         reduced_noise = nr.reduce_noise(y=audio_float, sr=RATE)
 
+        # Apply spectral gating
+        gated_audio = spectral_gate(reduced_noise, RATE)
+
         # Apply a high-pass filter to remove low-frequency noise
         sos = signal.butter(10, 100, 'hp', fs=RATE, output='sos')
-        filtered_audio = signal.sosfilt(sos, reduced_noise)
+        filtered_audio = signal.sosfilt(sos, gated_audio)
 
         # Apply dynamic range compression
         threshold = 0.1
