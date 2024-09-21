@@ -1,11 +1,11 @@
 import os
 import wave
 import numpy as np
+import torch
 from scipy import signal
 from scipy.io import wavfile
 from scipy.signal import medfilt
 from pydub import AudioSegment
-import noisereduce as nr
 
 # Recording directories
 RECORDINGS_DIR = os.path.expanduser("~/recordings/raw")
@@ -23,7 +23,10 @@ def process_audio_file(input_file, output_file):
     kernel_size = min(3, len(data) - 1)
     if kernel_size % 2 == 0:
         kernel_size -= 1
-    filtered_data = medfilt(data, kernel_size=kernel_size)
+    if kernel_size < 3:
+        filtered_data = data  # Skip median filtering if data is too short
+    else:
+        filtered_data = medfilt(data, kernel_size=kernel_size)
 
     # Convert the filtered data to an AudioSegment
     audio = AudioSegment(
@@ -47,26 +50,10 @@ def process_audio_file(input_file, output_file):
 
     # Convert to float32 for processing
     audio_float = audio_data.astype(np.float32) / 32768.0
-    # Apply noise reduction using vectorized operations for faster processing
-    chunk_size = 10_000  # Increased chunk size for better performance
-    reduced_noise = np.zeros_like(audio_float)
-    for i in range(0, len(audio_float), chunk_size):
-        chunk = audio_float[i:i+chunk_size]
-        reduced_chunk = nr.reduce_noise(y=chunk, sr=rate, n_std_thresh_stationary=1.5)
-        reduced_noise[i:i+len(reduced_chunk)] = reduced_chunk
-
-    # Optional: Use multiprocessing for parallel processing
-    # import multiprocessing as mp
-    # def process_chunk(chunk):
-    #     return nr.reduce_noise(y=chunk, sr=rate, n_std_thresh_stationary=1.5)
-    # with mp.Pool(processes=mp.cpu_count()) as pool:
-    #     chunks = [audio_float[i:i+chunk_size] for i in range(0, len(audio_float), chunk_size)]
-    #     reduced_chunks = pool.map(process_chunk, chunks)
-    # reduced_noise = np.concatenate(reduced_chunks)
 
     # Apply a high-pass filter to remove low-frequency noise
     sos = signal.butter(10, 100, 'hp', fs=rate, output='sos')
-    filtered_audio = signal.sosfilt(sos, reduced_noise)
+    filtered_audio = signal.sosfilt(sos, audio_float)
 
     # Apply dynamic range compression
     threshold = 0.1
