@@ -1,6 +1,7 @@
 import pyaudio
 import wave
 import os
+import shutil
 from datetime import datetime
 from pytz import timezone
 
@@ -12,10 +13,25 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 FORMAT = pyaudio.paFloat32  # Higher precision format for better quality
 RATE = 96000  # Higher sample rate for better frequency response
 CHUNK = 1024  # Smaller chunk size for more frequent updates and potentially lower latency
-RECORD_SECONDS = 3600  # 1 hour
+RECORD_SECONDS = 300  # 5 minutes
 CHANNELS = 2  # Stereo recording for better spatial information
 
+def get_disk_usage(path):
+    total, used, free = shutil.disk_usage(path)
+    return used / total
+
+def delete_oldest_recording():
+    files = [os.path.join(OUTPUT_DIR, f) for f in os.listdir(OUTPUT_DIR) if f.endswith('.wav')]
+    if files:
+        oldest_file = min(files, key=os.path.getctime)
+        os.remove(oldest_file)
+        print(f"Deleted oldest recording: {oldest_file}")
+
 def record_audio():
+    # Ensure disk usage doesn't exceed 80%
+    while get_disk_usage(OUTPUT_DIR) > 0.8:
+        delete_oldest_recording()
+
     # Get the current time in PST
     pst = timezone('America/Los_Angeles')
     timestamp = datetime.now(pst).strftime('%Y-%m-%d_%H-%M-%S')
