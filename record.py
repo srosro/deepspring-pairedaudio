@@ -11,9 +11,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Recording parameters
 FORMAT = pyaudio.paInt16
-RATE = 44100 #CD-quality sample rate 
+RATE = 96000 #High quality sample rate 
 CHUNK = 1024  # Smaller chunk size for more frequent updates and potentially lower latency
-RECORD_SECONDS = 5  # 5 minutes
+RECORD_SECONDS = 1800  # 30 minutes
 
 def get_disk_usage(path):
     total, used, free = shutil.disk_usage(path)
@@ -27,9 +27,11 @@ def delete_oldest_recording():
         print(f"Deleted oldest recording: {oldest_file}")
 
 def record_audio():
-    # Ensure disk usage doesn't exceed 80%
-    #while get_disk_usage(OUTPUT_DIR) > 0.8:
-    #    delete_oldest_recording()
+    #Ensure disk usage doesn't exceed 80% (delete up to 10 files)
+    n = 0
+    while get_disk_usage(OUTPUT_DIR) > 0.8 && n < 10:
+        delete_oldest_recording()
+        n += 1
 
     # Get the current time in PST
     pst = timezone('America/Los_Angeles')
