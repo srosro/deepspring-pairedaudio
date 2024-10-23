@@ -15,6 +15,11 @@ def process_audio_file(input_file, output_file):
     # Read the raw recording and apply audio processing
     rate, data = wavfile.read(input_file)
 
+    # Check if the audio data is empty
+    if len(data) == 0:
+        print(f"Warning: {input_file} is empty or corrupted. Skipping processing.")
+        return
+
     # Determine number of channels
     channels = 2 if data.ndim == 2 else 1
 
@@ -50,6 +55,11 @@ def process_audio_file(input_file, output_file):
 
     # Convert to float32 for processing
     audio_float = audio_data.astype(np.float32) / 32768.0
+
+    # Check if audio_float is empty
+    if audio_float.size == 0:
+        print(f"Warning: Processed audio data for {input_file} is empty. Skipping further processing.")
+        return
 
     # Apply a high-pass filter to remove low-frequency noise
     sos = signal.butter(10, 100, 'hp', fs=rate, output='sos')

@@ -10,11 +10,10 @@ OUTPUT_DIR = os.path.expanduser("~/recordings/raw")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Recording parameters
-FORMAT = pyaudio.paFloat32  # Higher precision format for better quality
-RATE = 96000  # Higher sample rate for better frequency response
+FORMAT = pyaudio.paInt16
+RATE = 44100 #CD-quality sample rate 
 CHUNK = 1024  # Smaller chunk size for more frequent updates and potentially lower latency
-RECORD_SECONDS = 300  # 5 minutes
-CHANNELS = 2  # Stereo recording for better spatial information
+RECORD_SECONDS = 5  # 5 minutes
 
 def get_disk_usage(path):
     total, used, free = shutil.disk_usage(path)
@@ -29,8 +28,8 @@ def delete_oldest_recording():
 
 def record_audio():
     # Ensure disk usage doesn't exceed 80%
-    while get_disk_usage(OUTPUT_DIR) > 0.8:
-        delete_oldest_recording()
+    #while get_disk_usage(OUTPUT_DIR) > 0.8:
+    #    delete_oldest_recording()
 
     # Get the current time in PST
     pst = timezone('America/Los_Angeles')
