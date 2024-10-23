@@ -29,7 +29,7 @@ def delete_oldest_recording():
 def record_audio():
     #Ensure disk usage doesn't exceed 80% (delete up to 10 files)
     n = 0
-    while get_disk_usage(OUTPUT_DIR) > 0.8 && n < 10:
+    while get_disk_usage(OUTPUT_DIR) > 0.8 and n < 10:
         delete_oldest_recording()
         n += 1
 
